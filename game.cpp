@@ -68,6 +68,7 @@ public:
         dialogTimeout = 0.0f;
         renderShovel = false;
         didFindAnderson = false;
+        isDraggingAnderson = false;
 
         return true;
     }
