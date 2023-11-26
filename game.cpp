@@ -2,486 +2,411 @@
 #include <cassert>
 #include <olcPixelGameEngine.h>
 #include <player.h>
+#include <terrain.h>
 
-class Animation
+class LiaGame : public olc::PixelGameEngine
 {
 public:
-    Animation(olc::vi2d size, std::vector<std::string> sprites, float speed)
-    {
-        assert(sprites.size() > 0);
-        mFrameRate = 1 / speed;
-        mSpriteSize = size;
-        mSize = sprites.size();
-        mSprites = std::vector<std::unique_ptr<olc::Sprite>>(mSize);
-
-        for (int i = 0; i < sprites.size(); i++)
-        {
-            mSprites[i] = std::make_unique<olc::Sprite>(sprites[i]);
-        }
-    }
-
-public:
-    olc::vi2d mSpriteSize;
-
-private:
-    std::vector<std::unique_ptr<olc::Sprite>> mSprites;
-    float mFrameRate;
-    float mAccumulator = 0.0f;
-    int mIndex = 0;
-    int mSize = 0;
-    bool mAnimate = true;
-
-public:
-    olc::Sprite *GetSprite()
-    {
-        return mSprites[mIndex].get();
-    }
-
-    void SetAnimate(bool animate)
-    {
-        mAnimate = animate;
-    }
-
-    void SetFrame(int index)
-    {
-        mIndex = index;
-    }
-
-    void Update(float fElapsedTime)
-    {
-        if (!mAnimate)
-            return;
-
-        mAccumulator += fElapsedTime;
-        if (mAccumulator >= mFrameRate)
-        {
-            mAccumulator -= mFrameRate;
-            mIndex = (mIndex + 1) % mSize;
-        }
-    }
-};
-
-class Person
-{
-public:
-    Person(olc::vi2d size, std::vector<std::string> sprites, float speed, olc::vf2d position)
-    {
-        assert(sprites.size() > 0);
-        mAnimation = new Animation(size, sprites, speed);
-        mPosition = position;
-    }
-
-    void Draw(olc::PixelGameEngine *pge, float fElapsedTime)
-    {
-        mAnimation->Update(fElapsedTime);
-        if (!isDead)
-        {
-            ComputeBoundingBox();
-        }
-        pge->DrawSprite(mPosition, mAnimation->GetSprite(), 1, mIsLeft);
-    }
-
-    bool IsHit(olc::vf2d topLeft, olc::vf2d size)
-    {
-        olc::vf2d position = GetPosition();
-        olc::vf2d size2 = GetSize();
-
-        if (position.x < topLeft.x + size.x &&
-            position.x + size2.x > topLeft.x &&
-            position.y < topLeft.y + size.y &&
-            position.y + size2.y > topLeft.y)
-        {
-            return true;
-        }
-
-        return false;
-    }
-
-    void Die(std::string sprite)
-    {
-        isDead = true;
-        mAnimation = new Animation(olc::vi2d(16, 16), {sprite}, 1.0f);
-        mAnimation->SetAnimate(false);
-        computedBoundingBox = olc::vi2d(0, 0);
-    }
-
-    void GetShape(olc::PixelGameEngine *pge)
-    {
-        pge->DrawRect(GetPosition(), GetSize(), olc::RED);
-    }
-
-    olc::vi2d GetPosition()
-    {
-        olc::vi2d topLeftC = olc::vi2d(mPosition.x + computedBoundingBox.x, mPosition.y);
-        return olc::vi2d(topLeftC.x, topLeftC.y);
-    }
-
-    olc::vi2d GetSize()
-    {
-        olc::vi2d size = olc::vi2d(mAnimation->mSpriteSize.x - computedBoundingBox.y, mAnimation->mSpriteSize.y);
-        return olc::vi2d(size.x, size.y);
-    }
-
-public:
-    olc::vf2d mPosition;
-    float mIsLeft = false;
-    float mVelocity = 40.0f;
-    Animation *mAnimation;
-    bool isDead = false;
-
-private:
-    olc::vf2d computedBoundingBox;
-
-    void ComputeBoundingBox()
-    {
-        olc::Sprite *sprite = mAnimation->GetSprite();
-
-        int minLeft = sprite->width;
-        int maxRight = 0;
-
-        // iterate through the sprite's width and height
-        // to find the left and right most pixels
-
-        int previousPixelX = 0;
-
-        for (int y = 0; y < sprite->height; y++)
-        {
-            for (int x = 0; x < sprite->width; x++)
-            {
-                olc::Pixel pixel = sprite->GetPixel(x, y);
-
-                if (pixel.a != 0)
-                {
-                    if (x <= minLeft)
-                    {
-                        minLeft = previousPixelX;
-                    }
-
-                    if (x >= maxRight)
-                    {
-                        maxRight = previousPixelX;
-                    }
-                }
-
-                previousPixelX = x;
-            }
-        }
-
-        computedBoundingBox = olc::vi2d(minLeft, maxRight);
-    }
-};
-
-class Score
-{
-public:
-    Score()
-    {
-    }
-
-    void KillAnderson()
-    {
-        if (killedAnderson)
-            return;
-
-        killedAnderson = true;
-        mScore += 10;
-    }
-
-    void KillAndersonMore()
-    {
-        if (killedAndersonMore)
-            return;
-
-        killedAndersonMore = true;
-        mScore += 20;
-    }
-
-    void FindAnderson()
-    {
-        if (foundAnderson)
-            return;
-
-        foundAnderson = true;
-        mScore += 5;
-    }
-
-    void HideTheBody()
-    {
-        if (hidTheBody)
-            return;
-
-        hidTheBody = true;
-        mScore += 25;
-    }
-
-public:
-    int mScore = 0;
-    int mLives = 3;
-    bool foundAnderson = false;
-    bool killedAnderson = false;
-    bool killedAndersonMore = false;
-    bool hidTheBody = false;
-
-private:
-};
-
-class Lia : public olc::PixelGameEngine
-{
-
-public:
-    Lia()
+    LiaGame()
     {
         sAppName = "Lia";
     }
 
 private:
-    Person *mLia;
-    Person *mAnderson;
-    Score *mScore;
-    olc::Sprite *mLivesSprite;
-    std::vector<olc::vi2d> randomVector;
-    std::string dialog = "";
-
-    float dialogTimer;
-    bool showDialog;
+    olc::Sprite *livesSprite;
+    bool isDraggingShovel;
     bool isDraggingAnderson;
-    bool gameOver;
-    bool gameStarted;
+    bool didGameStart;
+    bool isGameOver;
+    bool renderShovel;
 
-    void EnableLiaControls(float fElapsedTime)
-    {
-        if (GetKey(olc::Key::LEFT).bHeld)
-        {
-            mLia->mPosition.x -= mLia->mVelocity * fElapsedTime;
-            mLia->mIsLeft = true;
-            mLia->mAnimation->SetAnimate(true);
-        }
-        else if (GetKey(olc::Key::RIGHT).bHeld)
-        {
-            mLia->mPosition.x += mLia->mVelocity * fElapsedTime;
-            mLia->mIsLeft = false;
-            mLia->mAnimation->SetAnimate(true);
-        }
-        else if (GetKey(olc::Key::UP).bHeld)
-        {
-            mLia->mPosition.y -= mLia->mVelocity * fElapsedTime;
-            mLia->mAnimation->SetAnimate(true);
-        }
-        else if (GetKey(olc::Key::DOWN).bHeld)
-        {
-            mLia->mPosition.y += mLia->mVelocity * fElapsedTime;
-            mLia->mAnimation->SetAnimate(true);
-        }
-        else
-        {
-            mLia->mAnimation->SetFrame(1);
-            mLia->mAnimation->SetAnimate(false);
-        }
-    }
+    // Scores
+    bool didFindAnderson;
+    bool didBuryAnderson;
 
-    void NewDialog(std::string text)
-    {
-        dialog = text;
-        showDialog = true;
-    }
+    bool isDialogOpen;
+    bool finishedDialog;
+    float dialogTimeout;
 
-    void DrawDialog(float fElapsedTime)
-    {
-        if (!showDialog)
-            return;
-
-        dialogTimer += fElapsedTime;
-        if (dialogTimer >= 3.0f)
-        {
-            dialogTimer = 0.0f;
-            showDialog = false;
-            dialog = "";
-        }
-
-        FillRect(olc::vi2d(0, 0), olc::vi2d(256, 16), olc::VERY_DARK_GREY);
-        DrawString(olc::vi2d(0, 0), dialog, olc::WHITE, 1);
-    }
-
-    void DrawScore()
-    {
-        int height = ScreenHeight();
-
-        // XP
-        DrawString(olc::vi2d(70, height - 16), "XP: " + std::to_string(mScore->mScore), olc::WHITE, 1);
-
-        // Lives
-        for (int i = 0; i < mScore->mLives; i++)
-        {
-            DrawSprite(olc::vi2d(16 * i + 10, height - 20), mLivesSprite);
-        }
-    }
-
-    void AndersonInteractionProtocol()
-    {
-        if (mAnderson->isDead)
-        {
-            if (GetKey(olc::Key::D).bHeld)
-            {
-                isDraggingAnderson = true;
-            }
-            else
-            {
-                isDraggingAnderson = false;
-
-                // check if anderson is off screen
-                if (mAnderson->mPosition.x < 0 || mAnderson->mPosition.x > ScreenWidth() ||
-                    mAnderson->mPosition.y < 0 || mAnderson->mPosition.y > ScreenHeight())
-                {
-                    mScore->HideTheBody();
-                    NewDialog("You hid the body!");
-                }
-            }
-
-            if (GetKey(olc::Key::SPACE).bPressed)
-            {
-                NewDialog("You killed Anderson even\n more ;-(");
-                mScore->mLives--;
-                mScore->KillAndersonMore();
-            }
-            return;
-        }
-
-        if (mScore->foundAnderson)
-        {
-            if (!showDialog)
-            {
-                NewDialog("You already found me!");
-            }
-
-            if (GetKey(olc::Key::SPACE).bPressed)
-            {
-                NewDialog("You killed Anderson ;-(");
-                mAnderson->Die("./gfx/and3.png");
-                mScore->mLives--;
-                mScore->KillAnderson();
-            }
-
-            return;
-        }
-
-        mScore->FindAnderson();
-        NewDialog("You found Anderson!");
-    }
+public:
+    character::player *player;
+    character::player *anderson;
+    character::character *shovel;
+    terrain::terrain *terrain;
 
 public:
     bool OnUserCreate() override
     {
-        gameStarted = false;
-        gameOver = false;
-        isDraggingAnderson = false;
-        showDialog = false;
-        dialogTimer = 0.0f;
-        std::vector<std::string> liaSprites = {
-            "./gfx/lia0.png",
-            "./gfx/lia1.png",
-            "./gfx/lia2.png",
-        };
-        randomVector = generateRandomVector(256, 0, 255);
-        std::vector<std::string> andersonSprites = {
-            "./gfx/and1.png",
-            "./gfx/and2.png",
-        };
+        player = new character::player("Lia");
+        player->EnableControls();
+        player->SetPosition({10.0f, 10.0f});
 
-        mLia = new Person(olc::vi2d(16, 16), liaSprites, 6.0f, olc::vf2d(0.0f, 0.0f));
-        mScore = new Score();
-        mAnderson = new Person(olc::vi2d(16, 16), andersonSprites, 1.5f, olc::vf2d(100.0f, 100.0f));
-        mLivesSprite = new olc::Sprite("./gfx/lives.png");
+        anderson = new character::player("Anderson", andersonDefinition);
+        anderson->SetPosition({100.0f, 100.0f});
+        anderson->SetState("idle", 1, true);
+        anderson->coins = rand() % 10 + 1;
+
+        shovel = new character::player("Shovel", shovelDefinition);
+        shovel->SetPosition({200.0f, 200.0f});
+        shovel->SetState("idle", 1, true);
+
+        livesSprite = new olc::Sprite("./gfx/lives.png");
+        terrain = new terrain::terrain();
+        terrain->Create(ScreenWidth(), ScreenHeight(), 100, 1);
+
+        didGameStart = false;
+        isGameOver = false;
+        isDraggingShovel = false;
+        isDialogOpen = false;
+        finishedDialog = false;
+        dialogTimeout = 0.0f;
+        renderShovel = false;
 
         return true;
     }
 
     bool OnUserUpdate(float fElapsedTime) override
     {
+        Clear(olc::BLACK);
 
-        if (!gameStarted)
+        if (isGameOver)
         {
-            Clear(olc::DARK_BLUE);
-            if (GetKey(olc::Key::SPACE).bPressed)
-            {
-                gameStarted = true;
-            }
-
-            DrawString(olc::vi2d(0, 0), "Press SPACE to start", olc::WHITE, 1);
-            DrawString(olc::vi2d(0, 10), "Use the arrow keys to move", olc::WHITE, 1);
-            DrawString(olc::vi2d(0, 20), "Use D to drag Anderson", olc::WHITE, 1);
-            DrawString(olc::vi2d(0, 30), "Use SPACE to interact w Anderson", olc::WHITE, 1);
-            DrawString(olc::vi2d(0, 40), "WELCOME, LIA!", olc::WHITE, 1);
-
+            DrawGameOverScreen();
             return true;
         }
 
-        Clear(olc::DARK_GREEN);
-
-        for (int i = 0; i < randomVector.size(); i++)
+        if (!didGameStart)
         {
-            Draw(randomVector[i], olc::Pixel(0, 100, 22));
+            DrawStartScreen();
+            return true;
         }
 
-        SetPixelMode(olc::Pixel::MASK);
-        EnableLiaControls(fElapsedTime);
+        terrain->Update(this, fElapsedTime);
+        anderson->Draw(this, fElapsedTime);
+        player->Draw(this, fElapsedTime);
 
-        mAnderson->Draw(this, fElapsedTime);
-
-        mLia->Draw(this, fElapsedTime);
-
-        if (mLia->IsHit(mAnderson->GetPosition(), mAnderson->GetSize()))
-        {
-            AndersonInteractionProtocol();
-        }
-
-        if (isDraggingAnderson)
-        {
-            mAnderson->mPosition = mLia->mPosition;
-        }
-
-        DrawScore();
-        DrawDialog(fElapsedTime);
-
-        if (mScore->hidTheBody)
-        {
-            if (!showDialog)
-                gameOver = true;
-        }
-
-        if (gameOver)
-        {
-            Clear(olc::BLACK);
-
-            if (GetKey(olc::Key::R).bPressed)
-            {
-                OnUserCreate();
-                gameOver = false;
-            }
-
-            int width = ScreenWidth() / 2;
-            int height = ScreenHeight() / 2;
-
-            DrawString(olc::vi2d(width - 75, height - 10), "Game Over", olc::WHITE, 2);
-            DrawString(olc::vi2d(width - 75, height + 10), "Press R to restart", olc::WHITE, 1);
-        }
+        DrawShovel();
+        InteractWithAnderson();
+        InteractWithShovel();
+        DrawUI();
 
         return true;
     }
 
-    std::vector<olc::vi2d> generateRandomVector(int size, int min, int max)
+private:
+    void InteractWithAnderson()
     {
-        std::vector<olc::vi2d> result;
+        bool collidesWithHole = terrain->CollidesWithHole(anderson->box);
+        bool collidesWithShovel = shovel->box->Intersects(anderson->box);
 
-        int width = ScreenWidth();
-        int height = ScreenHeight();
-
-        for (int i = 0; i < size; i++)
+        if (collidesWithHole)
         {
-            int x = rand() % (width - min + 1) + min;
-            int y = rand() % (height - min + 1) + min;
-            result.push_back({x, y});
+            KillAnderson();
         }
-        return result;
+
+        if (player->box->Intersects(anderson->box))
+        {
+            if (anderson->IsDead())
+            {
+                if (anderson->coins > 0)
+                {
+                    ShowDialog("Holy shit! You killed him!!\nPress SPACE to steal his coins!", 0.0f);
+                }
+                else if (!collidesWithHole)
+                {
+                    if (!terrain->HasHoles())
+                    {
+                        ShowDialog("You need to bury him. Find a shovel", 0.0f);
+                        renderShovel = true;
+                    }
+                    else if (isDraggingAnderson)
+                        ShowDialog("Go to the hole", 0.0f);
+                    else
+                        ShowDialog("Press SPACE to drag the body", 0.0f);
+                }
+                else
+                {
+                    if (isDraggingAnderson)
+                        ShowDialog("Press SPACE to drop the body", 0.0f);
+                    else
+                    {
+                        if (!collidesWithShovel)
+                        {
+                            ShowDialog("Go get the shovel", 0.0f);
+                        }
+                        else if (isDraggingShovel)
+                        {
+                            ShowDialog("Press SPACE to bury the body", 0.0f);
+                            didBuryAnderson = true;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                ShowDialog("You found Anderson!!\nPress SPACE to interact", 0.0f);
+                FindAnderson();
+            }
+
+            if (GetKey(olc::Key::SPACE).bPressed)
+            {
+                if (anderson->IsDead())
+                {
+                    if (anderson->coins > 0)
+                    {
+                        StealAnderson();
+                    }
+                    else
+                    {
+                        isDraggingAnderson = !isDraggingAnderson;
+                    }
+                }
+                else
+                {
+                    KillAnderson();
+                }
+            }
+        }
+
+        if (isDraggingAnderson)
+        {
+            DragAndersonBody();
+        }
+    }
+
+    void InteractWithShovel()
+    {
+        if (!renderShovel)
+        {
+            return;
+        }
+
+        bool collidesWithHole = terrain->CollidesWithHole(shovel->box);
+        bool collidesWithAnderson = anderson->box->Intersects(shovel->box);
+
+        if (player->box->Intersects(shovel->box))
+        {
+            if (GetKey(olc::Key::SPACE).bPressed)
+            {
+                if (collidesWithHole)
+                {
+                    isDraggingShovel = true;
+                    ShowDialog("Can't drop the shovel here", 0.0f);
+                }
+                else
+                {
+                    isDraggingShovel = !isDraggingShovel;
+                }
+            }
+
+            if (GetKey(olc::Key::R).bPressed)
+            {
+                AddHoleAtPlayerPosition();
+            }
+
+            if (!terrain->HasHoles())
+            {
+                if (isDraggingShovel)
+                    ShowDialog("Press R to dig a hole", 0.0f);
+                else
+                    ShowDialog("Press SPACE to pick up the shovel", 0.0f);
+            }
+            else if (terrain->CollidesWithHole(shovel->box))
+            {
+                if (collidesWithAnderson)
+                {
+                    if (didBuryAnderson)
+                        isGameOver = true;
+                    else
+                        ShowDialog("Press SPACE to bury the body", 0.0f);
+                }
+                else
+                {
+                    ShowDialog("Go to Anderson", 0.0f);
+                }
+            }
+            else
+            {
+                if (!collidesWithAnderson)
+                {
+                    if (isDraggingShovel)
+                        ShowDialog("Go to Anderson", 0.0f);
+                    else
+                        ShowDialog("Press SPACE to pick up the shovel", 0.0f);
+                }
+            }
+        }
+    }
+
+private:
+    void KillAnderson()
+    {
+        if (anderson->IsDead())
+        {
+            return;
+        }
+        player->XP += 10;
+        anderson->SetState("dead");
+        anderson->Kill();
+    }
+
+    void FindAnderson()
+    {
+        if (didFindAnderson)
+        {
+            return;
+        }
+
+        didFindAnderson = true;
+        player->XP += 10;
+    }
+
+    void ShowDialog(std::string text, float fElapsedTime)
+    {
+        bool timeoutReached = dialogTimeout >= 3.0f;
+
+        if (timeoutReached)
+        {
+            isDialogOpen = false;
+            return;
+        }
+
+        dialogTimeout += fElapsedTime;
+        isDialogOpen = true;
+        DrawDialog(text);
+    }
+
+    void ResetDialog()
+    {
+        dialogTimeout = 0.0f;
+        isDialogOpen = false;
+    }
+
+    void DrawDialog(std::string text)
+    {
+        if (!isDialogOpen)
+        {
+            return;
+        }
+
+        int padding = 10;
+        int width = ScreenWidth() - padding * 2;
+        int height = 20 + padding * 2;
+
+        FillRect(olc::vi2d(padding, padding), olc::vi2d(width, height), olc::VERY_DARK_GREEN);
+        DrawString(olc::vi2d(padding + 5, padding + 5), text, olc::WHITE, 1);
+    }
+
+    void AddHoleAtPlayerPosition()
+    {
+        olc::vf2d pos = *player->GetPosition();
+        pos.x += 8;
+        pos.y += 8;
+        terrain->AddHole(pos);
+    }
+
+    void StealAnderson()
+    {
+        if (!anderson->IsDead() || anderson->coins <= 0)
+        {
+            return;
+        }
+
+        player->XP += 10;
+        player->coins += anderson->coins;
+        anderson->coins = 0;
+    }
+
+    void DragAndersonBody()
+    {
+        if (!anderson->IsDead())
+        {
+            return;
+        }
+
+        anderson->SetPosition(*player->GetPosition());
+    }
+
+    void DrawShovel()
+    {
+        if (!renderShovel)
+        {
+            return;
+        }
+
+        olc::vf2d *pos = shovel->GetPosition();
+        SetPixelMode(olc::Pixel::MASK);
+        bool flip = player->isFacingLeft | !isDraggingShovel;
+        DrawSprite(*pos, shovel->GetSprite(), 1, flip);
+
+        if (isDraggingShovel)
+        {
+            shovel->SetPosition(*player->GetPosition());
+        }
+    }
+
+    void DrawUI()
+    {
+        int y = ScreenHeight() - 20;
+        int spriteWidth = livesSprite->width;
+
+        // Lives
+        for (int i = 0; i < player->GetLives(); i++)
+        {
+            SetPixelMode(olc::Pixel::MASK);
+            DrawSprite(olc::vi2d(spriteWidth * i + 10, y), livesSprite);
+            SetPixelMode(olc::Pixel::NORMAL);
+        }
+
+        // XP
+        DrawString(olc::vi2d(70, y + 4), "XP: " + std::to_string(player->XP), olc::WHITE, 1);
+
+        // Draw Coins
+        int x = 130, radius = 5, coins = player->coins;
+        for (int i = 0; i < coins * 2; i++)
+        {
+            bool isOdd = i % 2 != 0;
+            olc::Pixel color = isOdd ? olc::YELLOW : olc::DARK_YELLOW;
+            FillCircle(olc::vi2d(x + i * 2, y + radius), radius, color);
+        }
+    }
+
+    void DrawStartScreen()
+    {
+        Clear(olc::VERY_DARK_BLUE);
+        if (GetKey(olc::Key::SPACE).bPressed)
+        {
+            didGameStart = true;
+        }
+
+        SetPixelMode(olc::Pixel::MASK);
+        DrawString(olc::vi2d(10, 10), "Welcome, " + player->GetName() + "! XD", olc::WHITE, 1);
+
+        DrawSprite(olc::vi2d(10, 60), anderson->GetSprite(), 3);
+        DrawSprite(olc::vi2d(50, 90), player->GetSprite(), 4, true);
+
+        // Start game
+        DrawString(olc::vi2d(10, ScreenHeight() - 20), "Press SPACE to start", olc::WHITE, 1);
+        DrawString(olc::vi2d(ScreenWidth() - 200, ScreenHeight() - 20), "Developed by Anderson!", olc::DARK_GREY, 1);
+    }
+
+    void DrawGameOverScreen()
+    {
+        Clear(olc::BLACK);
+
+        if (GetKey(olc::Key::R).bPressed)
+        {
+            OnUserCreate();
+            isGameOver = false;
+        }
+
+        int width = ScreenWidth() / 2;
+        int height = ScreenHeight() / 2;
+
+        DrawString(olc::vi2d(width - 75, height - 10), "Game Over", olc::WHITE, 2);
+        DrawString(olc::vi2d(width - 100, height + 10), "You burried Anderson ^-^", olc::WHITE, 1);
+        DrawString(olc::vi2d(width - 80, height + 30), "Thx for playing s2", olc::VERY_DARK_GREY, 1);
+        DrawString(olc::vi2d(width - 80, ScreenHeight() - 30), "Press R to restart", olc::VERY_DARK_GREY, 1);
     }
 };
 
@@ -489,9 +414,9 @@ int main()
 {
     srand(time(NULL));
 
-    Lia game;
+    LiaGame game;
 
-    if (game.Construct(256, 240, 4, 4))
+    if (game.Construct(400, 300, 3, 3))
         game.Start();
 
     return 0;
