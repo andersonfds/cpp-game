@@ -8,6 +8,7 @@ INCLUDES=-Ilib/headers $(LIBPNG_INCLUDE) -Isrc/*.h
 #LDFlags
 LIBPNG_LDFLAGS=$(shell libpng-config --L_opts)
 LDFLAGS=$(LIBPNG_LDFLAGS) -lpng16 -framework OpenGL -framework GLUT -lobjc
+CFLAGS_RELEASE += -O2 -s -DNDEBUG
 
 # Compiler flags
 CXXFLAGS=-std=c++17
@@ -19,7 +20,7 @@ SRC=game.cpp
 BIN=main
 
 # Build rule
-build:
+build: clean
 	@which libpng-config > /dev/null || (echo "libpng-config not found, please install libpng" && exit 1)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(BIN) $(LDFLAGS)
 	@$(MAKE) pack
@@ -32,7 +33,8 @@ pack:
 
 build_and_run: build run clean
 
-release: clean build
+release: clean
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(BIN) $(LDFLAGS) $(CFLAGS_RELEASE)
 	mkdir -p release
 	cp $(BIN) release/$(BIN)
 	cp *.dat release
