@@ -27,11 +27,8 @@ public:
         this->animation->SetFrameRate(frameRate);
         this->animation->Create();
 
-        if (recomputeBoundingBox)
-        {
-            this->box->w = this->animation->GetFrame()->width;
-            this->box->h = this->animation->GetFrame()->height;
-        }
+        this->box->w = this->animation->GetFrame()->width;
+        this->box->h = this->animation->GetFrame()->height;
 
         this->animation->animating = true;
     }
@@ -127,6 +124,11 @@ public:
     int GetLives()
     {
         return this->lives;
+    }
+
+    void SetPack(olc::ResourcePack *pack)
+    {
+        this->animation->SetPack(pack);
     }
 
 public:

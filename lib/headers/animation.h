@@ -32,7 +32,8 @@ public:
             std::vector<std::unique_ptr<olc::Sprite>> frames;
             for (auto const &frame : val)
             {
-                std::unique_ptr<olc::Sprite> sprite = std::make_unique<olc::Sprite>(frame);
+                std::unique_ptr<olc::Sprite> sprite;
+                sprite = std::make_unique<olc::Sprite>(frame, this->pack);
                 frames.push_back(std::move(sprite));
             }
             this->sprites[key] = std::move(frames);
@@ -47,7 +48,6 @@ public:
         {
             return;
         }
-
 
         this->frameRate = rate;
     }
@@ -99,6 +99,16 @@ public:
         return this->frame.get();
     }
 
+    void SetPack(olc::ResourcePack *pack)
+    {
+        this->pack = pack;
+    }
+
+    bool HasPack()
+    {
+        return this->pack != nullptr;
+    }
+
 private:
     void UpdateFrame()
     {
@@ -142,6 +152,7 @@ private:
     int currentFrame = 0;
     int frameRate = 60;
     bool created = false;
+    olc::ResourcePack *pack;
 };
 
 #endif

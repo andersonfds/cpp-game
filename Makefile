@@ -22,12 +22,24 @@ BIN=main
 build:
 	@which libpng-config > /dev/null || (echo "libpng-config not found, please install libpng" && exit 1)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) $(SRC) -o $(BIN) $(LDFLAGS)
+	@$(MAKE) pack
 
 run:
 	./$(BIN)
 
+pack:
+	./$(BIN) --pack
+
 build_and_run: build run clean
+
+release: clean build
+	mkdir -p release
+	cp $(BIN) release/$(BIN)
+	cp *.dat release
+	pushd release && zip -r $(BIN).zip $(BIN) pack.dat && popd
 
 # Clean rule
 clean:
+	@rm -rf release
 	@rm -f $(BIN)
+	@rm -f pack.dat

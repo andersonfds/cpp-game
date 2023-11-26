@@ -33,24 +33,30 @@ public:
     character::player *anderson;
     character::character *shovel;
     terrain::terrain *terrain;
+    olc::ResourcePack *pack;
 
 public:
     bool OnUserCreate() override
     {
         player = new character::player("Lia");
+        player->SetPack(pack);
         player->EnableControls();
         player->SetPosition({10.0f, 10.0f});
+        player->SetState("idle", 1, true);
 
         anderson = new character::player("Anderson", andersonDefinition);
+        anderson->SetPack(pack);
         anderson->SetPosition({100.0f, 100.0f});
         anderson->SetState("idle", 1, true);
         anderson->coins = rand() % 10 + 1;
 
         shovel = new character::player("Shovel", shovelDefinition);
+        shovel->SetPack(pack);
         shovel->SetPosition({200.0f, 200.0f});
         shovel->SetState("idle", 1, true);
 
-        livesSprite = new olc::Sprite("./gfx/lives.png");
+        livesSprite = new olc::Sprite("./gfx/lives.png", this->pack);
+
         terrain = new terrain::terrain();
         terrain->Create(ScreenWidth(), ScreenHeight(), 100, 1);
 
@@ -61,6 +67,7 @@ public:
         finishedDialog = false;
         dialogTimeout = 0.0f;
         renderShovel = false;
+        didFindAnderson = false;
 
         return true;
     }
@@ -134,10 +141,10 @@ private:
                         {
                             ShowDialog("Go get the shovel", 0.0f);
                         }
-                        else if (isDraggingShovel)
+                        else
                         {
-                            ShowDialog("Press SPACE to bury the body", 0.0f);
-                            didBuryAnderson = true;
+                            if (isDraggingShovel)
+                                ShowDialog("Press SPACE to bury the body", 0.0f);
                         }
                     }
                 }
@@ -155,6 +162,10 @@ private:
                     if (anderson->coins > 0)
                     {
                         StealAnderson();
+                    }
+                    else if (collidesWithHole && collidesWithShovel)
+                    {
+                        didBuryAnderson = true;
                     }
                     else
                     {
@@ -410,11 +421,61 @@ private:
     }
 };
 
-int main()
+void CompileResourcePack(std::string packName, std::string password)
 {
+    olc::ResourcePack *pack = new olc::ResourcePack();
+
+    // add all files to the pack from gfx folder
+    std::string path = "./gfx/";
+    for (const auto &entry : std::filesystem::directory_iterator(path))
+    {
+        std::string filename = entry.path().string();
+        std::cout << "Adding file to pack: " << filename << std::endl;
+        pack->AddFile(filename);
+    }
+
+    pack->SavePack(packName, password);
+}
+
+int main(int argc, char const *argv[])
+{
+    std::vector<std::string> all_args;
+    std::string compilePassPhrase = "I like cookies";
+
+    std::string executablePath = argv[0];
+    executablePath = executablePath.substr(0, executablePath.find_last_of("/\\"));
+    std::string packName = executablePath + "/game.dat";
+
+    if (argc > 1)
+    {
+        std::string first_arg = argv[1];
+        if (first_arg == "--pack")
+        {
+            std::cout << "Compiling resource pack..." << std::endl;
+            CompileResourcePack(packName, compilePassPhrase);
+            return 0;
+        }
+    }
+
+    olc::ResourcePack *pack = new olc::ResourcePack();
+
+    if (std::filesystem::exists(packName))
+    {
+        std::cout << "Loading resource pack..." << packName << std::endl;
+        pack->LoadPack(packName, compilePassPhrase);
+        pack->pubsync();
+    }
+    else
+    {
+        std::cout << "Resource pack not found." << packName << std::endl;
+        return 1;
+    }
+
     srand(time(NULL));
 
     LiaGame game;
+
+    game.pack = pack;
 
     if (game.Construct(400, 300, 3, 3))
         game.Start();
