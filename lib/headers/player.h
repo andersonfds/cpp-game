@@ -22,6 +22,14 @@ std::map<std::string, std::vector<std::string>> shovelDefinition = {
     {"idle", {"./gfx/shovel.png"}},
 };
 
+std::map<std::string, std::vector<std::string>> dogDefinition = {
+    {"idle", {"./gfx/dog0.png", "./gfx/dog1.png"}},
+};
+
+std::map<std::string, std::vector<std::string>> treeDefinition = {
+    {"idle", {"./gfx/tree0.png"}},
+};
+
 class character::player : public character::character
 {
 
@@ -43,7 +51,7 @@ public:
         this->controlsEnabled = true;
     }
 
-    void Draw(olc::PixelGameEngine *pge, float fElapsedTime)
+    void Draw(olc::PixelGameEngine *pge, float fElapsedTime, int scale = 1)
     {
         this->Update(fElapsedTime);
         Control(pge, fElapsedTime);
@@ -59,7 +67,7 @@ public:
         }
 
         pge->SetPixelMode(olc::Pixel::MASK);
-        pge->DrawSprite(pos->x, pos->y, sprite, 1, this->isFacingLeft);
+        pge->DrawSprite(pos->x, pos->y, sprite, scale, this->isFacingLeft);
         pge->SetPixelMode(olc::Pixel::NORMAL);
     }
 

@@ -16,22 +16,24 @@ private:
     olc::Sprite *livesSprite;
     bool isDraggingShovel;
     bool isDraggingAnderson;
-    bool didGameStart;
-    bool isGameOver;
     bool renderShovel;
 
     // Scores
     bool didFindAnderson;
     bool didBuryAnderson;
+    bool didInteractWithDog;
 
+    // UI Controls
+    bool didGameStart;
+    bool isGameOver;
     bool isDialogOpen;
-    bool finishedDialog;
-    float dialogTimeout;
 
 public:
     character::player *player;
     character::player *anderson;
     character::character *shovel;
+    character::player *tree;
+    character::player *dog;
     terrain::terrain *terrain;
     olc::ResourcePack *pack;
 
@@ -55,6 +57,16 @@ public:
         shovel->SetPosition({200.0f, 200.0f});
         shovel->SetState("idle", 1, true);
 
+        dog = new character::player("Dog", dogDefinition);
+        dog->SetPack(pack);
+        dog->SetPosition({200.0f, 250.0f});
+        dog->SetState("idle", 2, true);
+
+        tree = new character::player("Tree", treeDefinition);
+        tree->SetPack(pack);
+        tree->SetPosition({200.0f, 80.0f});
+        tree->SetState("idle", 2, true);
+
         livesSprite = new olc::Sprite("./gfx/lives.png", this->pack);
 
         terrain = new terrain::terrain();
@@ -64,11 +76,11 @@ public:
         isGameOver = false;
         isDraggingShovel = false;
         isDialogOpen = false;
-        finishedDialog = false;
-        dialogTimeout = 0.0f;
         renderShovel = false;
         didFindAnderson = false;
         isDraggingAnderson = false;
+        didInteractWithDog = false;
+        didBuryAnderson = false;
 
         return true;
     }
@@ -77,7 +89,7 @@ public:
     {
         Clear(olc::BLACK);
 
-        if (isGameOver)
+        if (isGameOver || player->IsDead())
         {
             DrawGameOverScreen();
             return true;
@@ -91,11 +103,15 @@ public:
 
         terrain->Update(this, fElapsedTime);
         anderson->Draw(this, fElapsedTime);
+        dog->Draw(this, fElapsedTime);
         player->Draw(this, fElapsedTime);
 
         DrawShovel();
         InteractWithAnderson();
         InteractWithShovel();
+        InteractWithDog();
+
+        tree->Draw(this, fElapsedTime, 3);
         DrawUI();
 
         return true;
@@ -250,6 +266,30 @@ private:
         }
     }
 
+    void InteractWithDog()
+    {
+        if (player->box->Intersects(dog->box))
+        {
+            if (didInteractWithDog)
+            {
+                ShowDialog("The dog seems happy!", 0.0f);
+                return;
+            }
+
+            if (GetKey(olc::Key::SPACE).bPressed)
+            {
+                didInteractWithDog = true;
+                player->XP += 10;
+                player->coins += 2;
+                player->TakeLife();
+            }
+            else
+            {
+                ShowDialog("Press SPACE to interact with the dog", 0.0f);
+            }
+        }
+    }
+
 private:
     void KillAnderson()
     {
@@ -273,25 +313,10 @@ private:
         player->XP += 10;
     }
 
-    void ShowDialog(std::string text, float fElapsedTime)
+    void ShowDialog(std::string text, float fElapsedTime, float timeout = 3.0f)
     {
-        bool timeoutReached = dialogTimeout >= 3.0f;
-
-        if (timeoutReached)
-        {
-            isDialogOpen = false;
-            return;
-        }
-
-        dialogTimeout += fElapsedTime;
         isDialogOpen = true;
         DrawDialog(text);
-    }
-
-    void ResetDialog()
-    {
-        dialogTimeout = 0.0f;
-        isDialogOpen = false;
     }
 
     void DrawDialog(std::string text)
@@ -416,7 +441,10 @@ private:
         int height = ScreenHeight() / 2;
 
         DrawString(olc::vi2d(width - 75, height - 10), "Game Over", olc::WHITE, 2);
-        DrawString(olc::vi2d(width - 100, height + 10), "You buried Anderson ^-^", olc::WHITE, 1);
+
+        if (didBuryAnderson)
+            DrawString(olc::vi2d(width - 100, height + 10), "You buried Anderson ^-^", olc::WHITE, 1);
+
         DrawString(olc::vi2d(width - 80, height + 30), "Thx for playing s2", olc::VERY_DARK_GREY, 1);
         DrawString(olc::vi2d(width - 80, ScreenHeight() - 30), "Press R to restart", olc::VERY_DARK_GREY, 1);
     }
