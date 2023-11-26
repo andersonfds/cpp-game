@@ -416,7 +416,7 @@ private:
         int height = ScreenHeight() / 2;
 
         DrawString(olc::vi2d(width - 75, height - 10), "Game Over", olc::WHITE, 2);
-        DrawString(olc::vi2d(width - 100, height + 10), "You burried Anderson ^-^", olc::WHITE, 1);
+        DrawString(olc::vi2d(width - 100, height + 10), "You buried Anderson ^-^", olc::WHITE, 1);
         DrawString(olc::vi2d(width - 80, height + 30), "Thx for playing s2", olc::VERY_DARK_GREY, 1);
         DrawString(olc::vi2d(width - 80, ScreenHeight() - 30), "Press R to restart", olc::VERY_DARK_GREY, 1);
     }
