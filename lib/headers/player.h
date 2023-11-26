@@ -120,20 +120,20 @@ private:
 
     void MoveRight(float fElapsedTime)
     {
-        this->Run();
+        this->Walk();
         this->SetPosition({this->GetPosition()->x + (this->GetSpeed() * fElapsedTime), this->GetPosition()->y});
         this->isFacingLeft = false;
     }
 
     void MoveUp(float fElapsedTime)
     {
-        this->Run();
+        this->Walk();
         this->SetPosition({this->GetPosition()->x, this->GetPosition()->y - (this->GetSpeed() * fElapsedTime)});
     }
 
     void MoveDown(float fElapsedTime)
     {
-        this->Run();
+        this->Walk();
         this->SetPosition({this->GetPosition()->x, this->GetPosition()->y + (this->GetSpeed() * fElapsedTime)});
     }
 
